@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentrygraph"
+version = "0.1.0"
+description = "Contract-to-execution graph conformance for tool-using AI agents"
+requires-python = ">=3.11"
+dependencies = [
+    "agentdojo==0.1.35"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sentrygraph*"]
