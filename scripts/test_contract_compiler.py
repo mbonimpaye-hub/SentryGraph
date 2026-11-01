@@ -86,6 +86,46 @@ def main() -> None:
         }
     )
 
+    # Strict authorizations normalize unexpected optional
+    # arguments with None values as omitted, while continuing to
+    # deny unexpected arguments with operational content.
+    strict_authorization = ToolAuthorization(
+        tool="create_calendar_event",
+        effect=EffectClass.WRITE,
+        constraints=(
+            ArgumentConstraint(
+                argument="title",
+                operator=ConstraintOperator.EQUALS,
+                value="Follow-up meeting",
+            ),
+        ),
+        allow_additional_arguments=False,
+        justification=(
+            "Regression test for optional null arguments."
+        ),
+    )
+
+    assert strict_authorization.arguments_authorized(
+        {
+            "title": "Follow-up meeting",
+        }
+    )
+
+    assert strict_authorization.arguments_authorized(
+        {
+            "title": "Follow-up meeting",
+            "participants": None,
+            "location": None,
+        }
+    )
+
+    assert not strict_authorization.arguments_authorized(
+        {
+            "title": "Follow-up meeting",
+            "location": "Unauthorized room",
+        }
+    )
+
     assert contract.authorization_for("send_email") is None
     assert "send_email" in contract.prohibited_tools
     assert contract.delegation_allowed is False

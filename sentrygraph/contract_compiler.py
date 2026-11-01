@@ -99,9 +99,18 @@ class ToolAuthorization:
                 for constraint in self.constraints
             }
 
-            observed_arguments = set(arguments)
+            unexpected_arguments = (
+                set(arguments)
+                - constrained_arguments
+            )
 
-            if observed_arguments != constrained_arguments:
+            # Agent tool schemas may materialize omitted optional
+            # fields as explicit None values. Such fields have no
+            # operational effect and are normalized as absent.
+            if any(
+                arguments[argument] is not None
+                for argument in unexpected_arguments
+            ):
                 return False
 
         return True
@@ -126,7 +135,7 @@ class TaskContract:
 
     delegation_allowed: bool = False
     compiler: str = "explicit_policy"
-    compiler_version: str = "0.2"
+    compiler_version: str = "0.3"
 
     created_at: str = field(
         default_factory=lambda: datetime.now(
