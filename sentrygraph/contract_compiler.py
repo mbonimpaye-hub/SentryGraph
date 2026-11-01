@@ -25,6 +25,7 @@ class ConstraintOperator(str, Enum):
     ONE_OF = "one_of"
     PREFIX = "prefix"
     SUFFIX = "suffix"
+    CONTAINS = "contains"
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,12 @@ class ArgumentConstraint:
             return (
                 isinstance(observed, str)
                 and observed.endswith(str(self.value))
+            )
+
+        if self.operator == ConstraintOperator.CONTAINS:
+            return (
+                isinstance(observed, str)
+                and str(self.value) in observed
             )
 
         return False

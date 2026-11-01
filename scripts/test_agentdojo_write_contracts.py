@@ -194,6 +194,60 @@ def main() -> int:
             }
         )
 
+    # Verify that task 33 permits a natural-language summary
+    # containing the required date while retaining exact routing.
+    email_task = suite.get_user_task_by_id(
+        "user_task_33"
+    )
+
+    email_result = compile_workspace_write_contract(
+        task=email_task,
+        base_environment=base_environment,
+    )
+
+    email_gate = DeterministicPolicyGate(
+        contract=email_result.contract
+    )
+
+    email_call = next(
+        call
+        for call in ground_truth_calls(
+            email_task,
+            base_environment,
+        )
+        if call.function == "send_email"
+    )
+
+    natural_summary = dict(email_call.args)
+    natural_summary["body"] = (
+        "Authorized client-meeting summary. "
+        "The next meeting is scheduled for 2024-06-01."
+    )
+
+    summary_decision = email_gate.evaluate(
+        "send_email",
+        natural_summary,
+    )
+
+    assert summary_decision.decision == Decision.ALLOW
+
+    missing_anchor = dict(natural_summary)
+    missing_anchor["body"] = (
+        "Authorized client-meeting summary "
+        "without the required meeting date."
+    )
+
+    missing_anchor_decision = email_gate.evaluate(
+        "send_email",
+        missing_anchor,
+    )
+
+    assert missing_anchor_decision.decision == Decision.DENY
+    assert (
+        missing_anchor_decision.rule_id
+        == "ARGUMENT_CONSTRAINT_VIOLATION"
+    )
+
     # Confirm that the generic dispatcher preserves read-only behavior.
     read_task = suite.get_user_task_by_id(
         "user_task_0"

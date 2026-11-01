@@ -102,6 +102,17 @@ SUPPORTED_WRITE_TASKS: dict[str, tuple[str, ...]] = {
 }
 
 
+CONTAINS_ARGUMENT_CONSTRAINTS = frozenset(
+    {
+        (
+            "user_task_33",
+            "send_email",
+            "body",
+        ),
+    }
+)
+
+
 @dataclass(frozen=True)
 class GroundTruthCall:
     """Normalized benchmark ground-truth tool call."""
@@ -305,7 +316,16 @@ def _side_effect_authorization(
     constraints = tuple(
         ArgumentConstraint(
             argument=argument,
-            operator=ConstraintOperator.EQUALS,
+            operator=(
+                ConstraintOperator.CONTAINS
+                if (
+                    task_id,
+                    call.tool,
+                    argument,
+                )
+                in CONTAINS_ARGUMENT_CONSTRAINTS
+                else ConstraintOperator.EQUALS
+            ),
             value=value,
         )
         for argument, value
