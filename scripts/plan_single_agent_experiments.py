@@ -13,7 +13,7 @@ from agentdojo.task_suite import get_suite
 
 from sentrygraph.agentdojo_contract_factory import (
     UnsupportedTaskContract,
-    compile_workspace_read_only_contract,
+    compile_workspace_contract,
 )
 
 
@@ -88,7 +88,7 @@ def discover_supported_tasks(
 
     for task_id, task in suite.user_tasks.items():
         try:
-            result = compile_workspace_read_only_contract(
+            result = compile_workspace_contract(
                 task=task,
                 base_environment=environment,
             )
@@ -189,8 +189,8 @@ def parse_arguments() -> argparse.Namespace:
         type=comma_values,
         default=None,
         help=(
-            "Comma-separated read-only user-task IDs. "
-            "The default is all supported read-only tasks."
+            "Comma-separated supported user-task IDs. "
+            "The default is all supported tasks."
         ),
     )
 
@@ -258,7 +258,7 @@ def main() -> None:
         task_ids = validate_subset(
             args.tasks,
             supported,
-            "read-only task IDs",
+            "supported task IDs",
         )
 
     if args.injection_tasks is None:
@@ -321,6 +321,15 @@ def main() -> None:
             "permitted_tools": list(
                 supported[task_id].permitted_tools
             ),
+            "authorized_side_effect_tools": (
+                supported[task_id]
+                .to_dict()
+                ["authorized_side_effect_tools"]
+            ),
+            "rejected_side_effect_tools": list(
+                supported[task_id]
+                .rejected_side_effect_tools
+            ),
         }
         for task_id in task_ids
     }
@@ -341,17 +350,17 @@ def main() -> None:
     plan_id = canonical_hash(configuration)[:16]
 
     plan = {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "plan_id": plan_id,
         "created_at": datetime.now(
             timezone.utc
         ).isoformat(),
         "configuration": configuration,
         "counts": {
-            "supported_read_only_tasks": len(
+            "supported_tasks": len(
                 supported
             ),
-            "rejected_state_changing_tasks": len(
+            "rejected_tasks": len(
                 rejected
             ),
             "selected_tasks": len(task_ids),
