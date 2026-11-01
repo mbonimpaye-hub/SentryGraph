@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -34,7 +35,10 @@ class ArgumentConstraint:
     operator: ConstraintOperator
     value: Any
 
-    def satisfied_by(self, arguments: dict[str, Any]) -> bool:
+    def satisfied_by(
+        self,
+        arguments: dict[str, Any],
+    ) -> bool:
         if self.argument not in arguments:
             return False
 
@@ -68,6 +72,7 @@ class ToolAuthorization:
     tool: str
     effect: EffectClass
     constraints: tuple[ArgumentConstraint, ...] = ()
+    allow_additional_arguments: bool = True
     approval_required: bool = False
     justification: str = ""
 
@@ -75,10 +80,24 @@ class ToolAuthorization:
         self,
         arguments: dict[str, Any],
     ) -> bool:
-        return all(
+        if not all(
             constraint.satisfied_by(arguments)
             for constraint in self.constraints
-        )
+        ):
+            return False
+
+        if not self.allow_additional_arguments:
+            constrained_arguments = {
+                constraint.argument
+                for constraint in self.constraints
+            }
+
+            observed_arguments = set(arguments)
+
+            if observed_arguments != constrained_arguments:
+                return False
+
+        return True
 
 
 @dataclass(frozen=True)
@@ -89,15 +108,19 @@ class TaskContract:
     principal: str
     objective: str
     permitted_tools: tuple[ToolAuthorization, ...]
+
     prohibited_tools: frozenset[str] = field(
         default_factory=frozenset
     )
+
     prohibited_effects: frozenset[EffectClass] = field(
         default_factory=frozenset
     )
+
     delegation_allowed: bool = False
     compiler: str = "explicit_policy"
-    compiler_version: str = "0.1"
+    compiler_version: str = "0.2"
+
     created_at: str = field(
         default_factory=lambda: datetime.now(
             timezone.utc
@@ -111,6 +134,7 @@ class TaskContract:
         for authorization in self.permitted_tools:
             if authorization.tool == tool:
                 return authorization
+
         return None
 
     def to_dict(self) -> dict[str, Any]:
@@ -119,13 +143,16 @@ class TaskContract:
         result["prohibited_tools"] = sorted(
             self.prohibited_tools
         )
+
         result["prohibited_effects"] = sorted(
             effect.value
             for effect in self.prohibited_effects
         )
 
         for authorization in result["permitted_tools"]:
-            authorization["effect"] = authorization["effect"].value
+            authorization["effect"] = (
+                authorization["effect"].value
+            )
 
             for constraint in authorization["constraints"]:
                 constraint["operator"] = (
@@ -162,7 +189,9 @@ def compile_explicit_contract(
             authorization.tool
             for authorization in permitted_tools
         ],
-        "prohibited_tools": sorted(prohibited_tools or set()),
+        "prohibited_tools": sorted(
+            prohibited_tools or set()
+        ),
     }
 
     source_digest = hashlib.sha256(
@@ -178,7 +207,9 @@ def compile_explicit_contract(
         principal=principal,
         objective=objective,
         permitted_tools=permitted_tools,
-        prohibited_tools=prohibited_tools or frozenset(),
+        prohibited_tools=(
+            prohibited_tools or frozenset()
+        ),
         prohibited_effects=(
             prohibited_effects or frozenset()
         ),
