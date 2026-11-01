@@ -97,7 +97,7 @@ TOOL_TO_FAMILY = {
 SUPPORTED_WRITE_TASKS: dict[str, tuple[str, ...]] = {
     "user_task_12": ("calendar",),
     "user_task_32": ("files",),
-    "user_task_33": ("files",),
+    "user_task_33": ("contacts", "files"),
     "user_task_35": ("files",),
 }
 

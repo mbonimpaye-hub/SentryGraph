@@ -339,6 +339,12 @@ def main() -> None:
         "suite": SUITE_NAME,
         "models": list(models),
         "task_ids": list(task_ids),
+        "contract_fingerprints": {
+            task_id: contract_metadata[task_id][
+                "contract_fingerprint"
+            ]
+            for task_id in task_ids
+        },
         "attacks": list(attacks),
         "injection_task_ids": list(
             injection_task_ids
@@ -350,7 +356,7 @@ def main() -> None:
     plan_id = canonical_hash(configuration)[:16]
 
     plan = {
-        "schema_version": "0.2",
+        "schema_version": "0.3",
         "plan_id": plan_id,
         "created_at": datetime.now(
             timezone.utc
