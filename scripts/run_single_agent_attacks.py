@@ -30,7 +30,7 @@ from run_single_agent_experiments import (
     utc_now,
 )
 from sentrygraph.agentdojo_contract_factory import (
-    compile_workspace_read_only_contract,
+    compile_workspace_contract,
 )
 
 
@@ -333,13 +333,31 @@ def main() -> int:
         )
 
         contract_result = (
-            compile_workspace_read_only_contract(
+            compile_workspace_contract(
                 task=task,
                 base_environment=base_environment,
             )
         )
 
         contract = contract_result.contract
+
+        planned_contract = plan["contracts"][task_id]
+
+        planned_fingerprint = planned_contract[
+            "contract_fingerprint"
+        ]
+
+        runtime_fingerprint = (
+            contract.fingerprint()
+        )
+
+        if runtime_fingerprint != planned_fingerprint:
+            raise RuntimeError(
+                "Runtime contract does not match the "
+                f"frozen plan for {task_id}: "
+                f"planned={planned_fingerprint}, "
+                f"runtime={runtime_fingerprint}"
+            )
 
         pair = pair_definition(cell)
         pair_id = canonical_hash(pair)[:20]
@@ -392,7 +410,12 @@ def main() -> int:
             "condition": condition,
             "contract_id": contract.contract_id,
             "contract_fingerprint": (
-                contract.fingerprint()
+                runtime_fingerprint
+            ),
+            "authorized_side_effect_tools": (
+                contract_result
+                .to_dict()
+                ["authorized_side_effect_tools"]
             ),
             "status": "running",
         }

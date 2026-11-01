@@ -162,8 +162,17 @@ class TaskContract:
         return result
 
     def fingerprint(self) -> str:
+        """Hash stable authorization semantics.
+
+        Creation time is audit metadata and must not alter the
+        semantic fingerprint of an otherwise identical contract.
+        """
+
+        semantics = self.to_dict()
+        semantics.pop("created_at", None)
+
         canonical = json.dumps(
-            self.to_dict(),
+            semantics,
             sort_keys=True,
             separators=(",", ":"),
         ).encode("utf-8")
