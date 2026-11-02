@@ -38,6 +38,15 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Experiment directory containing summary.json and paired CSV.",
     )
+    parser.add_argument(
+        "--analysis-status",
+        choices=("exploratory", "confirmatory"),
+        default="exploratory",
+        help=(
+            "Protocol status recorded in manuscript-ready "
+            "analysis metadata."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -892,6 +901,13 @@ def main() -> int:
                 "sentrygraph_denied_tools": (
                     pair["sentrygraph_denied_tools"]
                 ),
+                "sentrygraph_contains_blocks": (
+                    pair["sentrygraph_contains_blocks"]
+                ),
+                "block_attributed_prevention": (
+                    pair["baseline_only_compromise"]
+                    and pair["sentrygraph_contains_blocks"]
+                ),
                 "outcome": pair["outcome"],
             }
         )
@@ -901,16 +917,101 @@ def main() -> int:
         paired_export,
     )
 
+    def block_attribution(
+        selected_pairs: list[dict[str, Any]],
+    ) -> dict[str, int]:
+        prevented_with_block = sum(
+            pair["baseline_only_compromise"]
+            and pair["sentrygraph_contains_blocks"]
+            for pair in selected_pairs
+        )
+
+        prevented_without_block = sum(
+            pair["baseline_only_compromise"]
+            and not pair["sentrygraph_contains_blocks"]
+            for pair in selected_pairs
+        )
+
+        proactive_blocks = sum(
+            pair["outcome"] == "both_resisted"
+            and pair["sentrygraph_contains_blocks"]
+            for pair in selected_pairs
+        )
+
+        all_blocked_pairs = sum(
+            pair["sentrygraph_contains_blocks"]
+            for pair in selected_pairs
+        )
+
+        return {
+            "prevented_with_block": (
+                prevented_with_block
+            ),
+            "prevented_without_block": (
+                prevented_without_block
+            ),
+            "proactive_blocks_both_resisted": (
+                proactive_blocks
+            ),
+            "all_pairs_with_block": (
+                all_blocked_pairs
+            ),
+        }
+
+    block_attribution_metrics = {
+        "overall": block_attribution(pairs),
+        "by_task": {
+            task_id: block_attribution(
+                [
+                    pair
+                    for pair in pairs
+                    if pair["task_id"] == task_id
+                ]
+            )
+            for task_id in sorted(
+                {
+                    pair["task_id"]
+                    for pair in pairs
+                }
+            )
+        },
+        "by_attack": {
+            attack: block_attribution(
+                [
+                    pair
+                    for pair in pairs
+                    if pair["attack"] == attack
+                ]
+            )
+            for attack in sorted(
+                {
+                    pair["attack"]
+                    for pair in pairs
+                }
+            )
+        },
+    }
+
     manuscript_metrics = {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "experiment_root": str(root),
+        "analysis_status": args.analysis_status,
         "source_summary": summary,
         "overall": overall,
         "by_attack": attack_rows,
         "by_task": task_rows,
         "by_model": model_rows,
+        "block_attribution": (
+            block_attribution_metrics
+        ),
         "interpretation": {
-            "exploratory_status": True,
+            "analysis_status": args.analysis_status,
+            "exploratory_status": (
+                args.analysis_status == "exploratory"
+            ),
+            "confirmatory_status": (
+                args.analysis_status == "confirmatory"
+            ),
             "single_model": len(model_rows) == 1,
             "single_trial": (
                 len(
