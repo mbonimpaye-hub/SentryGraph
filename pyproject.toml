@@ -11,6 +11,13 @@ dependencies = [
     "agentdojo==0.1.35"
 ]
 
+[project.optional-dependencies]
+learning = [
+    "numpy>=2.5,<3.0",
+    "scikit-learn>=1.9,<2.0",
+    "torch>=2.15,<3.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["sentrygraph*"]
