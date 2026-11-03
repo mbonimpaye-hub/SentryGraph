@@ -521,16 +521,30 @@ def sha256(path: Path) -> str:
 
 
 def discover_model_directories(root: Path) -> list[Path]:
-    directories: list[Path] = []
-    for calibration in root.glob(
-        "folds/*/*/*/predictions_calibration.csv"
-    ):
-        model_directory = calibration.parent
-        if not (model_directory / "predictions_test.csv").exists():
-            raise RuntimeError(
-                f"Missing test predictions beside {calibration}."
-            )
-        directories.append(model_directory)
+    """Discover feature baselines and relational-GNN predictions."""
+
+    directories: set[Path] = set()
+
+    patterns = (
+        "folds/*/*/predictions_calibration.csv",
+        "folds/*/*/*/predictions_calibration.csv",
+    )
+
+    for pattern in patterns:
+        for calibration in root.glob(pattern):
+            model_directory = calibration.parent
+
+            if not (
+                model_directory
+                / "predictions_test.csv"
+            ).exists():
+                raise RuntimeError(
+                    "Missing test predictions beside "
+                    f"{calibration}."
+                )
+
+            directories.add(model_directory)
+
     return sorted(directories)
 
 
@@ -584,10 +598,40 @@ def main() -> int:
 
     try:
         for model_directory in model_directories:
-            relative = model_directory.relative_to(args.baselines_root)
-            _, fold, view, model = relative.parts
-            output_directory = temporary_output / relative
-            output_directory.mkdir(parents=True, exist_ok=True)
+            relative = model_directory.relative_to(
+                args.baselines_root
+            )
+
+            if len(relative.parts) == 3:
+                _, fold, view = relative.parts
+                model = "relational_gnn"
+
+                output_relative = (
+                    Path("folds")
+                    / fold
+                    / view
+                    / model
+                )
+
+            elif len(relative.parts) == 4:
+                _, fold, view, model = relative.parts
+                output_relative = relative
+
+            else:
+                raise RuntimeError(
+                    "Unsupported prediction layout: "
+                    f"{relative}"
+                )
+
+            output_directory = (
+                temporary_output
+                / output_relative
+            )
+
+            output_directory.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
 
             calibration = load_prediction_ensemble(
                 model_directory / "predictions_calibration.csv"
