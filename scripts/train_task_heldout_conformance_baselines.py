@@ -38,7 +38,12 @@ from sklearn.preprocessing import StandardScaler
 
 
 ROLES = ("train", "validation", "calibration", "test")
-VIEWS = ("full_fidelity", "structural_generalization", "semantic_ablated")
+VIEWS = (
+    "full_fidelity",
+    "structural_generalization",
+    "semantic_ablated",
+    "invariant_relational",
+)
 MODELS = ("dummy", "logistic_regression", "random_forest", "mlp")
 
 
