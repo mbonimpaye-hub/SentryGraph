@@ -19,7 +19,12 @@ from sentrygraph.graph_features import example_to_feature_dict
 
 
 ROLES = ("train", "validation", "calibration", "test")
-VIEWS = ("full_fidelity", "structural_generalization", "semantic_ablated")
+VIEWS = (
+    "full_fidelity",
+    "structural_generalization",
+    "semantic_ablated",
+    "invariant_relational",
+)
 
 STRUCTURAL_FORBIDDEN = (
     "candidate.contract_authorization::",
@@ -28,6 +33,35 @@ STRUCTURAL_FORBIDDEN = (
 SEMANTIC_FORBIDDEN = STRUCTURAL_FORBIDDEN + (
     "candidate.constraint.expected_value::",
     "candidate.constraint.observed_value::",
+)
+
+INVARIANT_ALLOWED = (
+    "candidate.argument_count",
+    "candidate.null_argument_count",
+    "candidate.contract_authorization::",
+    "candidate.approval_required",
+    "candidate.allow_additional_arguments",
+    "candidate.matching_contract_tool_count",
+    "candidate.constraint_count",
+    "candidate.constraint_satisfied_count",
+    "candidate.constraint_violated_count",
+    "candidate.constraint_missing_count",
+    "candidate.all_constraints_satisfied",
+    "candidate.constraint.satisfied::",
+    "candidate.constraint.violated::",
+    "candidate.unexpected_argument_count",
+    "candidate.unexpected_non_null_argument_count",
+    "candidate.argument_surface_valid",
+    "candidate.invariant_contract_conformant",
+    "contract.node_type::",
+    "contract.relation::",
+    "prefix.node_count",
+    "prefix.edge_count",
+    "prefix.node_type::",
+    "prefix.relation::",
+    "prefix.completed_actions",
+    "prefix.same_tool_actions",
+    "prefix.resource_kind::",
 )
 
 
@@ -93,6 +127,8 @@ def view_forbidden(view: str) -> tuple[str, ...]:
         return STRUCTURAL_FORBIDDEN
     if view == "semantic_ablated":
         return SEMANTIC_FORBIDDEN
+    if view == "invariant_relational":
+        return ()
     raise ValueError(view)
 
 
@@ -101,6 +137,15 @@ def filtered_feature_dict(
     view: str,
 ) -> dict[str, Any]:
     extracted = example_to_feature_dict(example)
+    if view == "invariant_relational":
+        return {
+            key: value
+            for key, value in extracted.items()
+            if any(
+                key == prefix or key.startswith(prefix)
+                for prefix in INVARIANT_ALLOWED
+            )
+        }
     forbidden = view_forbidden(view)
     return {
         key: value

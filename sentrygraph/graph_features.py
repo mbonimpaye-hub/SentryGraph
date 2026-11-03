@@ -44,6 +44,19 @@ def canonical_value_token(value: Any) -> str:
     )
 
 
+def constraint_satisfied(operator: str, expected: Any, observed: Any) -> bool:
+    """Evaluate supported contract operators without consulting labels."""
+
+    if operator == "equals":
+        return observed == expected
+    if operator == "contains":
+        try:
+            return expected in observed
+        except (TypeError, ValueError):
+            return False
+    return False
+
+
 def graph_index(
     graph: Mapping[str, Any],
 ) -> tuple[dict[str, Mapping[str, Any]], dict[str, list[Mapping[str, Any]]]]:
@@ -128,6 +141,10 @@ def example_to_feature_dict(example: Mapping[str, Any]) -> dict[str, Any]:
             )
 
     matched_constraints = 0
+    satisfied_constraints = 0
+    violated_constraints = 0
+    missing_constraints = 0
+    constrained_argument_names: set[str] = set()
     for tool_node_id in matching_tool_nodes:
         for edge in contract_outgoing.get(tool_node_id, []):
             target = contract_nodes.get(str(edge.get("target")))
@@ -144,10 +161,22 @@ def example_to_feature_dict(example: Mapping[str, Any]) -> dict[str, Any]:
 
             matched_constraints += 1
             argument = str(attributes.get("argument"))
+            constrained_argument_names.add(argument)
             operator = str(attributes.get("operator"))
             expected = attributes.get("value")
             present = argument in candidate_arguments
             observed = candidate_arguments.get(argument)
+            satisfied = present and constraint_satisfied(
+                operator,
+                expected,
+                observed,
+            )
+            if not present:
+                missing_constraints += 1
+            elif satisfied:
+                satisfied_constraints += 1
+            else:
+                violated_constraints += 1
 
             output[f"candidate.constraint.operator::{operator}"] = (
                 output.get(f"candidate.constraint.operator::{operator}", 0.0) + 1.0
@@ -156,6 +185,14 @@ def example_to_feature_dict(example: Mapping[str, Any]) -> dict[str, Any]:
                 output.get(f"candidate.constraint.argument::{argument}", 0.0) + 1.0
             )
             output[f"candidate.constraint.present::{argument}"] = float(present)
+            output[f"candidate.constraint.satisfied::{operator}"] = (
+                output.get(f"candidate.constraint.satisfied::{operator}", 0.0)
+                + float(satisfied)
+            )
+            output[f"candidate.constraint.violated::{operator}"] = (
+                output.get(f"candidate.constraint.violated::{operator}", 0.0)
+                + float(present and not satisfied)
+            )
             output[f"candidate.constraint.expected_type::{argument}"] = value_type(
                 expected
             )
@@ -184,6 +221,43 @@ def example_to_feature_dict(example: Mapping[str, Any]) -> dict[str, Any]:
         len(matching_tool_nodes)
     )
     output["candidate.constraint_count"] = float(matched_constraints)
+    output["candidate.constraint_satisfied_count"] = float(
+        satisfied_constraints
+    )
+    output["candidate.constraint_violated_count"] = float(
+        violated_constraints
+    )
+    output["candidate.constraint_missing_count"] = float(
+        missing_constraints
+    )
+    output["candidate.all_constraints_satisfied"] = float(
+        matched_constraints == satisfied_constraints
+    )
+
+    unexpected_arguments = set(candidate_arguments) - constrained_argument_names
+    unexpected_non_null = sum(
+        candidate_arguments[name] is not None
+        for name in unexpected_arguments
+    )
+    output["candidate.unexpected_argument_count"] = float(
+        len(unexpected_arguments)
+    )
+    output["candidate.unexpected_non_null_argument_count"] = float(
+        unexpected_non_null
+    )
+    permitted = bool(
+        output.get("candidate.contract_authorization::permitted", 0.0)
+    )
+    additional_allowed = bool(
+        output.get("candidate.allow_additional_arguments", 1.0)
+    )
+    argument_surface_valid = additional_allowed or unexpected_non_null == 0
+    output["candidate.argument_surface_valid"] = float(argument_surface_valid)
+    output["candidate.invariant_contract_conformant"] = float(
+        permitted
+        and matched_constraints == satisfied_constraints
+        and argument_surface_valid
+    )
 
     prefix_node_types = Counter(
         str(node.get("node_type")) for node in prefix.get("nodes", [])
