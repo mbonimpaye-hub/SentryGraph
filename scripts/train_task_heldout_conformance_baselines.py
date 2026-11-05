@@ -283,6 +283,12 @@ def main() -> int:
     source_manifest = json.loads(
         (args.features_root / "manifest.json").read_text(encoding="utf-8")
     )
+
+    views = tuple(source_manifest["views"])
+    if not views:
+        raise RuntimeError(
+            "The feature manifest declares no views."
+        )
     args.output_dir.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(
         tempfile.mkdtemp(prefix=f".{args.output_dir.name}-", dir=args.output_dir.parent)
@@ -300,7 +306,7 @@ def main() -> int:
                 "test_evaluation": fold["test_evaluation"],
                 "views": [],
             }
-            for view in VIEWS:
+            for view in views:
                 root = args.features_root / "folds" / fold_name / view
                 X = {
                     role: np.load(root / f"X_{role}.npy", allow_pickle=False)
@@ -414,7 +420,7 @@ def main() -> int:
             fold_results.append(fold_result)
 
         summary: dict[str, Any] = {}
-        for view in VIEWS:
+        for view in views:
             summary[view] = {}
             for model_name in MODELS:
                 binary_parts = pooled[(view, model_name)]
@@ -473,7 +479,7 @@ def main() -> int:
     print("Encoding:", source_manifest["encoding_id"])
     print("Seeds:", seeds)
     print("Output:", args.output_dir)
-    for view in VIEWS:
+    for view in views:
         print(f"\n{view}")
         for model_name in MODELS:
             binary = summary[view][model_name]["binary_generalization_pooled"]
