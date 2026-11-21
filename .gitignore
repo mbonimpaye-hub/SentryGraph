@@ -33,3 +33,8 @@ logs/
 .DS_Store
 .vscode/
 .idea/
+
+# Generated and release archives
+sentrygraph_ml_figure_artifacts.zip
+phase3b_interface_bundle.zip
+phase4c_running_example_bundle.zip
